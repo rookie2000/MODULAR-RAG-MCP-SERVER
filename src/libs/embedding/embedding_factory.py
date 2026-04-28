@@ -130,6 +130,12 @@ def _register_builtin_providers() -> None:
     except ImportError:
         pass  # Ollama provider not available
 
+    try:
+        from src.libs.embedding.minimax_embedding import MiniMaxEmbedding
+        EmbeddingFactory.register_provider("minimax", MiniMaxEmbedding)
+    except ImportError:
+        pass  # MiniMax provider not available
+
 
 # Register providers when module is imported
 _register_builtin_providers()

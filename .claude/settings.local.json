@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:platform.minimaxi.com)",
+      "Bash(cd /d D:\\\\MODULAR-RAG-MCP-SERVER)",
+      "Bash(python -c \"from src.libs.llm import LLMFactory; print\\('LLM Factory providers:', LLMFactory.list_providers\\(\\)\\)\")",
+      "Bash(python -c \"from src.libs.embedding import EmbeddingFactory; print\\('Embedding Factory providers:', EmbeddingFactory.list_providers\\(\\)\\)\")"
+    ]
+  }
+}

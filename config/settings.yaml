@@ -6,12 +6,13 @@
 # LLM Configuration
 # =============================================================================
 llm:
-  provider: "openai"  # Options: openai, azure, ollama, deepseek
+  provider: "openai"  # Options: openai, azure, ollama, deepseek, minimax
   model: "gpt-4o"
   deployment_name: "gpt-4o"
   azure_endpoint: "https://YOUR_ENDPOINT.openai.azure.com/"
   api_version: "2024-02-15-preview"
   api_key: "YOUR_API_KEY_HERE"
+  base_url: "https://api.minimax.chat/v1"  # For MiniMax, Ollama, or other OpenAI-compatible endpoints
   temperature: 0.0
   max_tokens: 4096
 
@@ -19,9 +20,11 @@ llm:
 # Embedding Configuration
 # =============================================================================
 embedding:
-  provider: "openai"  # Options: openai, azure, ollama
+  provider: "openai"  # Options: openai, azure, ollama, minimax
   model: "text-embedding-ada-002"
   dimensions: 1536  # text-embedding-ada-002 固定维度 (不传递给API, 仅用于验证)
+  # MiniMax settings:
+  base_url: "https://api.minimax.chat/v1"  # For MiniMax or other OpenAI-compatible endpoints
   # Azure-compatible settings (azure_endpoint triggers Azure compat mode):
   azure_endpoint: "https://YOUR_ENDPOINT.openai.azure.com/"
   deployment_name: "text-embedding-ada-002"
