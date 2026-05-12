@@ -71,6 +71,68 @@ def test_load_settings_success(tmp_path: Path) -> None:
     assert settings.ingestion is not None
 
 
+def test_load_settings_applies_local_credentials(tmp_path: Path) -> None:
+    config = """
+    llm:
+      provider: openai
+      model: mimo-v2-pro
+      base_url: https://token-plan-cn.xiaomimimo.com/v1
+      temperature: 0.0
+      max_tokens: 1024
+    embedding:
+      provider: minimax
+      model: text-embedding-v03
+      dimensions: 1536
+      base_url: https://api.minimax.chat/v1
+    vector_store:
+      provider: chroma
+      persist_directory: ./data/db/chroma
+      collection_name: knowledge_hub
+    retrieval:
+      dense_top_k: 20
+      sparse_top_k: 20
+      fusion_top_k: 10
+      rrf_k: 60
+    rerank:
+      enabled: false
+      provider: none
+      model: cross-encoder/ms-marco-MiniLM-L-6-v2
+      top_k: 5
+    evaluation:
+      enabled: false
+      provider: custom
+      metrics:
+        - hit_rate
+    observability:
+      log_level: INFO
+      trace_enabled: true
+      trace_file: ./logs/traces.jsonl
+      structured_logging: true
+    """
+    credentials = """
+    mimo:
+      api_key: mimo-key
+      model: mimo-v2-pro
+      base_url: https://token-plan-cn.xiaomimimo.com/v1
+    minimax:
+      api_key: minimax-key
+      embedding_model: embo-01
+      base_url: https://api.minimax.chat/v1
+    """
+    settings_path = tmp_path / "settings.yaml"
+    credentials_path = tmp_path / "test_credentials.yaml"
+    _write_yaml(settings_path, config)
+    _write_yaml(credentials_path, credentials)
+
+    settings = load_settings(settings_path)
+
+    assert settings.llm.api_key == "mimo-key"
+    assert settings.llm.base_url == "https://token-plan-cn.xiaomimimo.com/v1"
+    assert settings.embedding.api_key == "minimax-key"
+    assert settings.embedding.provider == "minimax"
+    assert settings.embedding.model == "embo-01"
+
+
 def test_missing_required_field_raises_error(tmp_path: Path) -> None:
     config = """
     llm:

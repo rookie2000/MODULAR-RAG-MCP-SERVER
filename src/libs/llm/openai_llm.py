@@ -81,8 +81,10 @@ class OpenAILLM(BaseLLM):
         azure_endpoint = getattr(settings.llm, 'azure_endpoint', None)
         self.api_version = getattr(settings.llm, 'api_version', None)
         
-        if base_url:
-            self.base_url = base_url
+        settings_base_url = getattr(settings.llm, 'base_url', None)
+
+        if base_url or settings_base_url:
+            self.base_url = base_url or settings_base_url
             self._use_azure_auth = False
         elif azure_endpoint:
             # Azure-compatible mode: construct deployment-based URL
@@ -139,7 +141,8 @@ class OpenAILLM(BaseLLM):
             )
             
             # Parse response
-            content = response_data["choices"][0]["message"]["content"]
+            message = response_data["choices"][0]["message"]
+            content = message.get("content") or ""
             usage = response_data.get("usage")
             
             return ChatResponse(
@@ -198,11 +201,14 @@ class OpenAILLM(BaseLLM):
                 "Authorization": f"Bearer {self.api_key}",
                 "Content-Type": "application/json",
             }
+            if self._uses_api_key_header():
+                headers["api-key"] = self.api_key
+        token_limit_key = "max_completion_tokens" if self._uses_mimo_endpoint() else "max_tokens"
         payload = {
             "model": model,
             "messages": messages,
             "temperature": temperature,
-            "max_tokens": max_tokens,
+            token_limit_key: max_tokens,
         }
         
         try:
@@ -244,3 +250,11 @@ class OpenAILLM(BaseLLM):
             return response.text
         except Exception:
             return response.text or "Unknown error"
+
+    def _uses_mimo_endpoint(self) -> bool:
+        """Return True for MiMo OpenAI-compatible endpoints."""
+        return any(host in self.base_url for host in ("mimo-v2.com", "xiaomimimo.com"))
+
+    def _uses_api_key_header(self) -> bool:
+        """MiMo's public docs use the api-key header for authentication."""
+        return self._uses_mimo_endpoint()

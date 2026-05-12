@@ -1,11 +1,8 @@
-"""MiniMax Embedding implementation.
-
-This module provides the MiniMax Embedding implementation that uses the
-OpenAI-compatible API format.
-"""
+"""MiniMax Embedding implementation."""
 
 from __future__ import annotations
 
+import os
 from typing import Any, List, Optional
 
 from src.libs.embedding.base_embedding import BaseEmbedding
@@ -19,7 +16,6 @@ class MiniMaxEmbedding(BaseEmbedding):
     """MiniMax Embedding provider implementation.
 
     This class implements the BaseEmbedding interface for MiniMax's Embeddings API.
-    MiniMax provides OpenAI-compatible API endpoints.
 
     Attributes:
         api_key: The API key for authentication.
@@ -38,6 +34,7 @@ class MiniMaxEmbedding(BaseEmbedding):
 
     # MiniMax embedding models and their dimensions
     MODEL_DIMENSIONS = {
+        "embo-01": 1536,
         "text-embedding-v03": 1536,
         "text-embedding-v03-moe": 1536,
     }
@@ -66,16 +63,8 @@ class MiniMaxEmbedding(BaseEmbedding):
         self.dimensions = getattr(settings.embedding, 'dimensions', None)
 
         # API key: explicit > settings > env var
-        self.api_key = (
-            api_key
-            or getattr(settings.embedding, 'api_key', None)
-            or settings.embedding.get('api_key')
-            or None
-        )
-        if not self.api_key:
-            # Try environment variable
-            import os
-            self.api_key = os.environ.get("MINIMAX_API_KEY")
+        settings_api_key = self._optional_str(getattr(settings.embedding, 'api_key', None))
+        self.api_key = api_key or settings_api_key or os.environ.get("MINIMAX_API_KEY")
 
         if not self.api_key:
             raise ValueError(
@@ -87,7 +76,7 @@ class MiniMaxEmbedding(BaseEmbedding):
         if base_url:
             self.base_url = base_url
         else:
-            settings_base_url = getattr(settings.embedding, 'base_url', None)
+            settings_base_url = self._optional_str(getattr(settings.embedding, 'base_url', None))
             self.base_url = settings_base_url if settings_base_url else self.DEFAULT_BASE_URL
 
         # Store any additional kwargs for future use
@@ -128,8 +117,9 @@ class MiniMaxEmbedding(BaseEmbedding):
         }
 
         payload = {
-            "input": texts,
+            "texts": texts,
             "model": self.model,
+            "type": kwargs.get("type", "db"),
         }
 
         # Add dimensions if specified
@@ -148,6 +138,11 @@ class MiniMaxEmbedding(BaseEmbedding):
                     )
 
                 response_data = response.json()
+                base_resp = response_data.get("base_resp")
+                if isinstance(base_resp, dict) and base_resp.get("status_code") != 0:
+                    raise MiniMaxEmbeddingError(
+                        f"[MiniMax] Embeddings API error: {base_resp}"
+                    )
 
         except httpx.TimeoutException as e:
             raise MiniMaxEmbeddingError(
@@ -160,7 +155,7 @@ class MiniMaxEmbedding(BaseEmbedding):
 
         # Extract embeddings from response
         try:
-            embeddings = [item["embedding"] for item in response_data["data"]]
+            embeddings = response_data["vectors"]
         except (KeyError, TypeError) as e:
             raise MiniMaxEmbeddingError(
                 f"Failed to parse MiniMax Embeddings API response: {e}"
@@ -205,3 +200,7 @@ class MiniMaxEmbedding(BaseEmbedding):
             return response.text
         except Exception:
             return response.text or "Unknown error"
+
+    @staticmethod
+    def _optional_str(value: Any) -> Optional[str]:
+        return value if isinstance(value, str) and value else None

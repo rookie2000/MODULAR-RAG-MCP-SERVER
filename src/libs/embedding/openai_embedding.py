@@ -66,9 +66,10 @@ class OpenAIEmbedding(BaseEmbedding):
         self.dimensions = getattr(settings.embedding, 'dimensions', None)
         
         # API key: explicit > settings > env var
+        settings_api_key = self._optional_str(getattr(settings.embedding, 'api_key', None))
         self.api_key = (
             api_key
-            or getattr(settings.embedding, 'api_key', None)
+            or settings_api_key
             or os.environ.get("OPENAI_API_KEY")
         )
         if not self.api_key:
@@ -78,12 +79,14 @@ class OpenAIEmbedding(BaseEmbedding):
             )
         
         # Azure-compatible mode detection
-        azure_endpoint = getattr(settings.embedding, 'azure_endpoint', None)
-        self.api_version = getattr(settings.embedding, 'api_version', None)
+        azure_endpoint = self._optional_str(getattr(settings.embedding, 'azure_endpoint', None))
+        self.api_version = self._optional_str(getattr(settings.embedding, 'api_version', None))
         self._use_azure_auth = False
         
-        if base_url:
-            self.base_url = base_url
+        settings_base_url = self._optional_str(getattr(settings.embedding, 'base_url', None))
+
+        if base_url or settings_base_url:
+            self.base_url = base_url or settings_base_url
         elif azure_endpoint:
             # Azure-compatible mode: construct deployment-based URL
             deployment = getattr(settings.embedding, 'deployment_name', None) or self.model
@@ -92,8 +95,7 @@ class OpenAIEmbedding(BaseEmbedding):
             if not self.api_version:
                 self.api_version = "2024-02-15-preview"
         else:
-            settings_base_url = getattr(settings.embedding, 'base_url', None)
-            self.base_url = settings_base_url if settings_base_url else self.DEFAULT_BASE_URL
+            self.base_url = self.DEFAULT_BASE_URL
         
         # Store any additional kwargs for future use
         self._extra_config = kwargs
@@ -202,3 +204,7 @@ class OpenAIEmbedding(BaseEmbedding):
         }
         
         return model_dimensions.get(self.model)
+
+    @staticmethod
+    def _optional_str(value: Any) -> Optional[str]:
+        return value if isinstance(value, str) and value else None

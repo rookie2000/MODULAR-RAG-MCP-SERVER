@@ -16,6 +16,7 @@ REPO_ROOT: Path = Path(__file__).resolve().parents[2]
 
 # Default absolute path to settings.yaml
 DEFAULT_SETTINGS_PATH: Path = REPO_ROOT / "config" / "settings.yaml"
+LOCAL_CREDENTIALS_FILENAME = "test_credentials.yaml"
 
 
 def resolve_path(relative: Union[str, Path]) -> Path:
@@ -85,6 +86,100 @@ def _require_list(data: Dict[str, Any], key: str, path: str) -> List[Any]:
     if not isinstance(value, list):
         raise SettingsError(f"Expected list for field: {path}.{key}")
     return value
+
+
+def _optional_str(value: Any) -> Optional[str]:
+    return value if isinstance(value, str) and value.strip() else None
+
+
+def _load_local_credentials(settings_path: Path) -> Dict[str, Any]:
+    """Load ignored local credentials next to settings.yaml when present."""
+    credentials_path = settings_path.parent / LOCAL_CREDENTIALS_FILENAME
+    if not credentials_path.exists():
+        return {}
+
+    with credentials_path.open("r", encoding="utf-8") as handle:
+        credentials = yaml.safe_load(handle) or {}
+
+    if not isinstance(credentials, dict):
+        raise SettingsError(f"Credentials root must be a mapping: {credentials_path}")
+    return credentials
+
+
+def _credential_profile_for_section(section: Dict[str, Any], default_provider: str) -> str:
+    provider = str(section.get("provider") or default_provider).lower()
+    base_url = str(section.get("base_url") or "").lower()
+    model = str(section.get("model") or "").lower()
+
+    if "xiaomimimo.com" in base_url or "mimo" in model:
+        return "mimo"
+    if "minimax" in base_url:
+        return "minimax"
+    return provider
+
+
+def _credential_value(
+    credentials: Dict[str, Any],
+    profile: str,
+    *keys: str,
+) -> Optional[str]:
+    section = credentials.get(profile)
+    if not isinstance(section, dict):
+        return None
+    for key in keys:
+        value = _optional_str(section.get(key))
+        if value:
+            return value
+    return None
+
+
+def _apply_section_credentials(
+    section: Dict[str, Any],
+    credentials: Dict[str, Any],
+    profile: str,
+    model_keys: tuple[str, ...],
+) -> None:
+    api_key = _credential_value(credentials, profile, "api_key")
+    if api_key:
+        section["api_key"] = api_key
+
+    model = _credential_value(credentials, profile, *model_keys)
+    if model:
+        section["model"] = model
+
+    base_url = _credential_value(credentials, profile, "base_url")
+    if base_url:
+        section["base_url"] = base_url
+
+
+def _apply_local_credentials(data: Dict[str, Any], credentials: Dict[str, Any]) -> None:
+    if not credentials:
+        return
+
+    llm = data.get("llm")
+    if isinstance(llm, dict):
+        profile = _credential_profile_for_section(llm, "openai")
+        _apply_section_credentials(llm, credentials, profile, ("llm_model", "model"))
+
+    embedding = data.get("embedding")
+    if isinstance(embedding, dict):
+        profile = _credential_profile_for_section(embedding, "openai")
+        _apply_section_credentials(
+            embedding,
+            credentials,
+            profile,
+            ("embedding_model", "model"),
+        )
+
+    vision_llm = data.get("vision_llm")
+    if isinstance(vision_llm, dict):
+        profile = _credential_profile_for_section(vision_llm, "openai")
+        _apply_section_credentials(
+            vision_llm,
+            credentials,
+            profile,
+            ("vision_model", "llm_model", "model"),
+        )
 
 
 @dataclass(frozen=True)
@@ -321,6 +416,13 @@ def load_settings(path: str | Path | None = None) -> Settings:
     with settings_path.open("r", encoding="utf-8") as handle:
         data = yaml.safe_load(handle)
 
-    settings = Settings.from_dict(data or {})
+    if data is not None and not isinstance(data, dict):
+        raise SettingsError("Settings root must be a mapping")
+
+    data = data or {}
+    credentials = _load_local_credentials(settings_path)
+    _apply_local_credentials(data, credentials)
+
+    settings = Settings.from_dict(data)
     validate_settings(settings)
     return settings

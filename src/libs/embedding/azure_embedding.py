@@ -62,19 +62,20 @@ class AzureEmbedding(BaseEmbedding):
         # Azure uses 'deployment_name' instead of 'model'
         # Try settings.embedding.deployment_name first, fallback to model
         self.deployment_name = (
-            getattr(settings.embedding, 'deployment_name', None) or 
-            settings.embedding.model
+            self._optional_str(getattr(settings.embedding, 'deployment_name', None))
+            or settings.embedding.model
         )
         
         # Extract optional dimensions setting
         self.dimensions = getattr(settings.embedding, 'dimensions', None)
         
         # API key: explicit parameter > settings.yaml > env var (fallback for backward compatibility)
+        settings_api_key = self._optional_str(getattr(settings.embedding, 'api_key', None))
         self.api_key = (
-            api_key or 
-            getattr(settings.embedding, 'api_key', None) or
+            api_key or
             os.environ.get("AZURE_OPENAI_API_KEY") or
-            os.environ.get("OPENAI_API_KEY")
+            os.environ.get("OPENAI_API_KEY") or
+            settings_api_key
         )
         if not self.api_key:
             raise ValueError(
@@ -83,10 +84,13 @@ class AzureEmbedding(BaseEmbedding):
             )
         
         # Azure endpoint: explicit parameter > settings.yaml > env var (fallback)
+        settings_azure_endpoint = self._optional_str(
+            getattr(settings.embedding, 'azure_endpoint', None)
+        )
         self.azure_endpoint = (
             azure_endpoint or
-            getattr(settings.embedding, 'azure_endpoint', None) or
-            os.environ.get("AZURE_OPENAI_ENDPOINT")
+            os.environ.get("AZURE_OPENAI_ENDPOINT") or
+            settings_azure_endpoint
         )
         if not self.azure_endpoint:
             raise ValueError(
@@ -95,9 +99,10 @@ class AzureEmbedding(BaseEmbedding):
             )
         
         # API version: explicit > settings > default
+        settings_api_version = self._optional_str(getattr(settings.embedding, 'api_version', None))
         self.api_version = (
             api_version or
-            getattr(settings.embedding, 'api_version', None) or
+            settings_api_version or
             self.DEFAULT_API_VERSION
         )
         
@@ -216,3 +221,7 @@ class AzureEmbedding(BaseEmbedding):
         
         # Cannot determine dimension
         return None
+
+    @staticmethod
+    def _optional_str(value: Any) -> Optional[str]:
+        return value if isinstance(value, str) and value else None
