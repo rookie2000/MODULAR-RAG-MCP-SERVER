@@ -81,6 +81,7 @@ config/settings.yaml.bak
 
 # pyenv
 .python-version
+!.python-version
 
 # mypy
 .mypy_cache/
@@ -89,6 +90,7 @@ dmypy.json
 
 # Ruff
 .ruff_cache/
+.uv-cache/
 
 # Project-specific
 data/

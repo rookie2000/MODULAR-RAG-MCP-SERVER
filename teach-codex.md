@@ -109,13 +109,19 @@ Documents
 
 ### 5.1 安装依赖
 
-建议使用虚拟环境，然后安装开发依赖：
+建议使用 `uv` 创建项目内独立环境，避免和本机已经用 `pip install` 安装过的包互相影响：
 
 ```bash
-pip install -e ".[dev]"
+uv sync --extra dev
 ```
 
-这会安装运行依赖和测试、lint、类型检查工具。
+这会在项目根目录创建 `.venv/`，并把运行依赖和测试、lint、类型检查工具都安装到这个隔离环境里。Windows 下也可以直接运行：
+
+```powershell
+.\scripts\setup_env.ps1
+```
+
+后续命令建议统一用 `uv run ...` 执行，确保使用的是当前项目的 `.venv`。
 
 ### 5.2 检查配置
 
@@ -143,25 +149,25 @@ config/settings.yaml
 可以先用测试夹具中的 PDF：
 
 ```bash
-python scripts/ingest.py --path tests/fixtures/sample_documents/simple.pdf --collection demo
+uv run python scripts/ingest.py --path tests/fixtures/sample_documents/simple.pdf --collection demo
 ```
 
 处理目录：
 
 ```bash
-python scripts/ingest.py --path tests/fixtures/sample_documents --collection demo
+uv run python scripts/ingest.py --path tests/fixtures/sample_documents --collection demo
 ```
 
 强制重新处理：
 
 ```bash
-python scripts/ingest.py --path tests/fixtures/sample_documents/simple.pdf --collection demo --force
+uv run python scripts/ingest.py --path tests/fixtures/sample_documents/simple.pdf --collection demo --force
 ```
 
 预览将处理哪些文件但不执行摄取：
 
 ```bash
-python scripts/ingest.py --path tests/fixtures/sample_documents --dry-run
+uv run python scripts/ingest.py --path tests/fixtures/sample_documents --dry-run
 ```
 
 ### 5.4 本地查询
@@ -169,7 +175,7 @@ python scripts/ingest.py --path tests/fixtures/sample_documents --dry-run
 摄取完成后执行：
 
 ```bash
-python scripts/query.py --query "这个文档讲了什么" --collection demo --verbose
+uv run python scripts/query.py --query "这个文档讲了什么" --collection demo --verbose
 ```
 
 `--verbose` 会打印 Dense、Sparse、Fusion 等中间结果，适合学习和调试。
@@ -177,13 +183,13 @@ python scripts/query.py --query "这个文档讲了什么" --collection demo --v
 禁用重排：
 
 ```bash
-python scripts/query.py --query "RRF 是什么" --collection demo --no-rerank
+uv run python scripts/query.py --query "RRF 是什么" --collection demo --no-rerank
 ```
 
 ### 5.5 启动 Dashboard
 
 ```bash
-python scripts/start_dashboard.py --port 8501
+uv run python scripts/start_dashboard.py --port 8501
 ```
 
 Dashboard 对应源码在：
@@ -201,19 +207,19 @@ src/observability/dashboard/services/
 使用默认 golden test set：
 
 ```bash
-python scripts/evaluate.py
+uv run python scripts/evaluate.py
 ```
 
 不连接检索系统，只验证评估框架：
 
 ```bash
-python scripts/evaluate.py --no-search
+uv run python scripts/evaluate.py --no-search
 ```
 
 指定集合：
 
 ```bash
-python scripts/evaluate.py --collection demo
+uv run python scripts/evaluate.py --collection demo
 ```
 
 ## 6. 配置驱动架构
@@ -725,10 +731,10 @@ markers = [
 常用命令：
 
 ```bash
-pytest
-pytest tests/unit
-pytest -m "not llm"
-pytest tests/integration/test_hybrid_search.py
+uv run pytest
+uv run pytest tests/unit
+uv run pytest -m "not llm"
+uv run pytest tests/integration/test_hybrid_search.py
 ```
 
 推荐学习顺序：
@@ -879,7 +885,7 @@ RAG 调参不要随机改。建议顺序是：
 1. `main.py` 目前主要是配置加载检查入口，不等于完整 MCP stdio server。正式 MCP server 在 `src/mcp_server/server.py`。
 2. `config/settings.yaml` 中有占位 API Key，实际运行前需要替换成本地有效配置，且不要提交真实凭证。
 3. `scripts/query.py` 依赖已经摄取的数据。如果没有先运行 ingest，查询会找不到相关文档。
-4. LLM、Vision LLM、Embedding 调用可能依赖外部服务。测试时可使用 `pytest -m "not llm"` 跳过真实模型调用。
+4. LLM、Vision LLM、Embedding 调用可能依赖外部服务。测试时可使用 `uv run pytest -m "not llm"` 跳过真实模型调用。
 5. 数据目录如 `data/db/chroma`、`data/db/bm25`、`data/images` 是运行时产物，不应和源码逻辑混淆。
 
 ## 22. 推荐阅读顺序

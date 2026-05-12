@@ -106,7 +106,16 @@
 ```bash
 git clone <repo-url>
 cd Modular-RAG-MCP-Server
+uv sync --extra dev
 ```
+
+依赖会安装到项目根目录的 `.venv/`，不会污染本机已有的全局 Python 包。之后运行命令建议使用 `uv run ...`，例如：
+
+```bash
+uv run python scripts/start_dashboard.py --port 8501
+```
+
+更多环境说明见 [docs/environment.md](docs/environment.md)。
 
 ### 2. 一键配置（Setup Skill）
 
