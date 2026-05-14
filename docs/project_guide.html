@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Modular RAG MCP Server - 项目学习指南</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --card: #f8f9fb;
+    --card-hover: #eef1f6;
+    --border: #d1d5db;
+    --accent: #0284c7;
+    --accent2: #6366f1;
+    --accent3: #059669;
+    --accent4: #db2777;
+    --accent5: #ea580c;
+    --text: #1e293b;
+    --text-dim: #64748b;
+    --text-bright: #0f172a;
+    --code-bg: #f1f5f9;
+    --success: #16a34a;
+    --warning: #ca8a04;
+    --danger: #dc2626;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    scroll-behavior: smooth;
+  }
+
+  /* ── Navigation ── */
+  nav {
+    position: fixed; top: 0; left: 0; width: 260px; height: 100vh;
+    background: var(--card);
+    border-right: 1px solid var(--border);
+    padding: 24px 0;
+    overflow-y: auto;
+    z-index: 100;
+  }
+  nav .logo {
+    font-size: 18px; font-weight: 700; color: var(--accent);
+    padding: 0 20px 20px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 16px;
+  }
+  nav .logo small { display: block; font-size: 11px; color: var(--text-dim); font-weight: 400; margin-top: 4px; }
+  nav a {
+    display: block; padding: 8px 20px; color: var(--text-dim);
+    text-decoration: none; font-size: 14px; transition: all .2s;
+    border-left: 3px solid transparent;
+  }
+  nav a:hover, nav a.active {
+    color: var(--accent); background: rgba(2,132,199,.06);
+    border-left-color: var(--accent);
+  }
+  nav a.sub { padding-left: 36px; font-size: 13px; }
+
+  /* ── Main ── */
+  main {
+    margin-left: 260px; padding: 40px 48px 80px;
+    max-width: 960px;
+  }
+
+  /* ── Hero ── */
+  .hero {
+    background: linear-gradient(135deg, #f8f9fb 0%, #eef4ff 50%, #f0fdf4 100%);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 48px;
+    margin-bottom: 48px;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute; top: -50%; right: -20%;
+    width: 400px; height: 400px;
+    background: radial-gradient(circle, rgba(2,132,199,.06) 0%, transparent 70%);
+  }
+  .hero h1 { font-size: 32px; color: var(--text-bright); margin-bottom: 8px; position: relative; }
+  .hero h1 span { color: var(--accent); }
+  .hero p { color: var(--text-dim); font-size: 16px; position: relative; }
+  .hero .badges { margin-top: 16px; display: flex; gap: 8px; flex-wrap: wrap; position: relative; }
+  .badge {
+    display: inline-block; padding: 4px 12px; border-radius: 20px;
+    font-size: 12px; font-weight: 600;
+  }
+  .badge.blue   { background: rgba(2,132,199,.1); color: var(--accent); }
+  .badge.purple { background: rgba(99,102,241,.1); color: var(--accent2); }
+  .badge.green  { background: rgba(5,150,105,.1); color: var(--accent3); }
+  .badge.pink   { background: rgba(219,39,119,.1); color: var(--accent4); }
+  .badge.orange { background: rgba(234,88,12,.1); color: var(--accent5); }
+
+  /* ── Sections ── */
+  section { margin-bottom: 56px; }
+  h2 {
+    font-size: 24px; color: var(--text-bright);
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid var(--border);
+    display: flex; align-items: center; gap: 10px;
+  }
+  h2 .icon { font-size: 28px; }
+  h3 { font-size: 18px; color: var(--text-bright); margin: 24px 0 12px; }
+  h4 { font-size: 15px; color: var(--accent); margin: 16px 0 8px; }
+  p { margin-bottom: 12px; }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 16px;
+    transition: all .2s;
+  }
+  .card:hover { border-color: var(--accent); background: var(--card-hover); }
+  .card-title {
+    font-size: 16px; font-weight: 700; color: var(--text-bright);
+    margin-bottom: 8px; display: flex; align-items: center; gap: 8px;
+  }
+  .card .tag {
+    display: inline-block; padding: 2px 8px; border-radius: 4px;
+    font-size: 11px; font-weight: 600; margin-left: auto;
+  }
+
+  /* ── Grid ── */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  @media (max-width: 800px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
+
+  /* ── Code ── */
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 12px 0 16px;
+    overflow-x: auto;
+    font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #334155;
+  }
+  code {
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    background: rgba(2,132,199,.08);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 13px;
+    color: var(--accent);
+  }
+  pre code { background: none; padding: 0; color: inherit; }
+  .comment { color: #94a3b8; }
+  .keyword { color: #dc2626; }
+  .string { color: #0369a1; }
+  .fn { color: #7c3aed; }
+  .var { color: #ea580c; }
+
+  /* ── Flow diagram ── */
+  .flow {
+    display: flex; align-items: center; gap: 0;
+    flex-wrap: wrap; margin: 20px 0;
+  }
+  .flow-step {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 18px;
+    text-align: center;
+    min-width: 120px;
+    transition: all .2s;
+  }
+  .flow-step:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .flow-step .step-icon { font-size: 24px; margin-bottom: 4px; }
+  .flow-step .step-label { font-size: 13px; font-weight: 600; color: var(--text-bright); }
+  .flow-step .step-desc { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+  .flow-arrow {
+    font-size: 20px; color: var(--accent); padding: 0 6px;
+    flex-shrink: 0;
+  }
+
+  /* ── Vertical flow ── */
+  .vflow { position: relative; padding-left: 32px; margin: 16px 0; }
+  .vflow::before {
+    content: ''; position: absolute; left: 11px; top: 8px; bottom: 8px;
+    width: 2px; background: var(--border);
+  }
+  .vflow-item {
+    position: relative; margin-bottom: 16px;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 10px; padding: 16px 20px;
+  }
+  .vflow-item::before {
+    content: ''; position: absolute; left: -27px; top: 18px;
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--accent); border: 2px solid var(--bg);
+  }
+  .vflow-item .vf-num {
+    font-size: 11px; font-weight: 700; color: var(--accent);
+    text-transform: uppercase; letter-spacing: 1px;
+  }
+  .vflow-item .vf-title { font-weight: 700; color: var(--text-bright); margin: 4px 0; }
+  .vflow-item .vf-desc { font-size: 13px; color: var(--text-dim); }
+
+  /* ── Table ── */
+  table {
+    width: 100%; border-collapse: collapse;
+    margin: 12px 0 16px; font-size: 14px;
+  }
+  th {
+    background: var(--card); color: var(--accent);
+    padding: 10px 14px; text-align: left;
+    border-bottom: 2px solid var(--accent);
+    font-size: 13px; text-transform: uppercase; letter-spacing: .5px;
+  }
+  td {
+    padding: 10px 14px; border-bottom: 1px solid var(--border);
+    color: var(--text);
+  }
+  tr:hover td { background: rgba(2,132,199,.04); }
+
+  /* ── Steps ── */
+  .step {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+  .step::before {
+    content: attr(data-step);
+    position: absolute; top: -8px; right: -8px;
+    font-size: 80px; font-weight: 900;
+    color: rgba(2,132,199,.06);
+    line-height: 1;
+  }
+  .step-num {
+    display: inline-block; width: 28px; height: 28px; line-height: 28px;
+    text-align: center; border-radius: 50%;
+    background: var(--accent); color: var(--bg);
+    font-size: 14px; font-weight: 700; margin-right: 10px;
+  }
+  .step h3 { margin-top: 0; display: flex; align-items: center; }
+  .step .why {
+    background: rgba(129,140,248,.08);
+    border-left: 3px solid var(--accent2);
+    padding: 10px 14px;
+    border-radius: 0 8px 8px 0;
+    margin-top: 12px;
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+  .step .why strong { color: var(--accent2); }
+
+  /* ── Analogy box ── */
+  .analogy {
+    background: linear-gradient(135deg, rgba(5,150,105,.06), rgba(2,132,199,.06));
+    border: 1px solid rgba(5,150,105,.2);
+    border-radius: 12px;
+    padding: 24px;
+    margin: 16px 0;
+  }
+  .analogy h4 { color: var(--accent3); margin-top: 0; }
+
+  /* ── Warning ── */
+  .note {
+    background: rgba(234,179,8,.08);
+    border-left: 3px solid var(--warning);
+    border-radius: 0 8px 8px 0;
+    padding: 12px 16px;
+    margin: 12px 0;
+    font-size: 13px;
+  }
+  .note strong { color: var(--warning); }
+
+  /* ── Highlight ── */
+  .highlight {
+    background: rgba(2,132,199,.04);
+    border: 1px solid rgba(2,132,199,.15);
+    border-radius: 8px;
+    padding: 16px;
+    margin: 12px 0;
+  }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* ── Responsive ── */
+  @media (max-width: 900px) {
+    nav { display: none; }
+    main { margin-left: 0; padding: 24px; }
+    .flow { flex-direction: column; }
+    .flow-arrow { transform: rotate(90deg); }
+  }
+</style>
+</head>
+<body>
+
+<!-- ── Navigation ── -->
+<nav>
+  <div class="logo">
+    Modular RAG MCP Server
+    <small>项目学习指南</small>
+  </div>
+  <a href="#overview">项目概述</a>
+  <a href="#analogy" class="sub">通俗比喻</a>
+  <a href="#layers" class="sub">五大架构层</a>
+  <a href="#layer-mcp">MCP Server</a>
+  <a href="#layer-ingestion">Ingestion 摄入</a>
+  <a href="#layer-query">Query Engine 检索</a>
+  <a href="#layer-response">Response 响应</a>
+  <a href="#layer-observe">Observability 监控</a>
+  <a href="#dataflow">数据流全貌</a>
+  <a href="#setup">运行步骤</a>
+  <a href="#step0" class="sub">第0步：装工具</a>
+  <a href="#step1" class="sub">第1步：装依赖</a>
+  <a href="#step2" class="sub">第2步：配置密钥</a>
+  <a href="#step3" class="sub">第3步：检查配置</a>
+  <a href="#step4" class="sub">第4步：验证环境</a>
+  <a href="#step5" class="sub">第5步：导入文档</a>
+  <a href="#step6" class="sub">第6步：查询知识库</a>
+  <a href="#step7" class="sub">第7步：启动仪表盘</a>
+  <a href="#step8" class="sub">第8步：接入AI助手</a>
+  <a href="#summary">总结</a>
+</nav>
+
+<!-- ── Main Content ── -->
+<main>
+
+<!-- ══════════════════════════════════════════ -->
+<!-- HERO -->
+<!-- ══════════════════════════════════════════ -->
+<div class="hero">
+  <h1>Modular RAG <span>MCP Server</span></h1>
+  <p>一个基于 Model Context Protocol 的模块化检索增强生成框架 — 从零开始的学习指南</p>
+  <div class="badges">
+    <span class="badge blue">RAG</span>
+    <span class="badge purple">MCP Protocol</span>
+    <span class="badge green">Hybrid Search</span>
+    <span class="badge pink">Vector DB</span>
+    <span class="badge orange">Python 3.10</span>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════ -->
+<!-- SECTION: Overview -->
+<!-- ══════════════════════════════════════════ -->
+<section id="overview">
+<h2><span class="icon"></span> 项目概述</h2>
+<p>
+  这个项目做了一件事：<strong>让你的 AI 助手（如 Claude Desktop）能搜索你自己的私有文档</strong>。
+  你把 PDF 扔进去，它帮你切成块、向量化、建索引，然后通过标准协议（MCP）对外提供问答服务。
+</p>
+</section>
+
+<!-- ── Analogy ── -->
+<section id="analogy">
+<h3>通俗比喻：一家智能图书馆</h3>
+<div class="analogy">
+  <h4> 把整个项目想象成一家图书馆</h4>
+  <div class="grid-2" style="margin-top:16px;">
+    <div class="card">
+      <div class="card-title"> Ingestion（摄入层）</div>
+      <p style="font-size:13px;color:var(--text-dim);">图书管理员把新书拆开、贴标签、编目录、上架。对应：PDF → 切块 → 向量化 → 存储</p>
+    </div>
+    <div class="card">
+      <div class="card-title"> Query Engine（检索引擎）</div>
+      <p style="font-size:13px;color:var(--text-dim);">读者来问问题，管理员用"关键词搜索 + 分类索引"两种方式帮你找书。对应：混合检索 + RRF融合</p>
+    </div>
+    <div class="card">
+      <div class="card-title"> Response（响应层）</div>
+      <p style="font-size:13px;color:var(--text-dim);">管理员把找到的内容整理成一段带出处的回答。对应：Markdown + 引用标记 + 图片</p>
+    </div>
+    <div class="card">
+      <div class="card-title"> MCP Server（服务窗口）</div>
+      <p style="font-size:13px;color:var(--text-dim);">图书馆的对外窗口，外部的人通过这个窗口来提问。对应：JSON-RPC over stdio</p>
+    </div>
+    <div class="card" style="grid-column: 1/-1;">
+      <div class="card-title">👁️ Observability（监控室）</div>
+      <p style="font-size:13px;color:var(--text-dim);">图书馆的监控室，记录每一次借阅和每一次采购的详细日志。对应：TraceContext + Streamlit Dashboard</p>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ══════════════════════════════════════════ -->
+<!-- SECTION: Five Layers -->
+<!-- ══════════════════════════════════════════ -->
+<section id="layers">
+<h2><span class="icon"> </span> 五大架构层详解</h2>
+<p>每一层都有明确的职责，层与层之间通过数据类型（<code>Document</code>、<code>Chunk</code>、<code>RetrievalResult</code>）解耦，可以独立替换和测试。</p>
+</section>
+
+<!-- ── Layer 1: MCP Server ── -->
+<section id="layer-mcp">
+<h3>1️⃣ MCP Server — 对外的"门面"</h3>
+<p>它是整个系统的入口，通过 MCP 协议对外暴露 3 个工具：</p>
+<table>
+  <thead><tr><th>工具名</th><th>功能</th><th>参数</th></tr></thead>
+  <tbody>
+    <tr><td><code>query_knowledge_hub</code></td><td>核心：接收问题，返回带引用的答案</td><td>query (必填), top_k, collection</td></tr>
+    <tr><td><code>list_collections</code></td><td>列出有哪些文档集合</td><td>无</td></tr>
+    <tr><td><code>get_document_summary</code></td><td>返回某份文档的摘要</td><td>collection, document_id</td></tr>
+  </tbody>
+</table>
+
+<div class="highlight">
+  <strong>工作方式：</strong>通过 <code>stdio</code>（标准输入输出）传输 JSON-RPC 消息。
+  客户端发一个 <code>tools/call("query_knowledge_hub", {"query": "xxx"})</code>，
+  server 端就会调起下面所有层来完成一次查询。
+</div>
+
+<h4>关键文件</h4>
+<ul style="margin-left:20px;font-size:14px;color:var(--text-dim);">
+  <li><code>src/mcp_server/server.py</code> — 入口，创建 MCP Server 实例</li>
+  <li><code>src/mcp_server/protocol_handler.py</code> — 工具注册表，管理 3 个工具的 schema 和执行</li>
+  <li><code>src/mcp_server/tools/query_knowledge_hub.py</code> — 核心查询工具，编排整个查询流程</li>
+</ul>
+</section>
+
+<!-- ── Layer 2: Ingestion ── -->
+<section id="layer-ingestion">
+<h3>2️⃣ Ingestion — 文档"吃进去"的流水线</h3>
+<p>把 PDF 文档处理成可检索的数据，存进向量库。一条文档经过 <strong>6 个阶段</strong>：</p>
+
+<div class="vflow">
+  <div class="vflow-item">
+    <span class="vf-num">阶段 1</span>
+    <div class="vf-title">完整性检查 — SQLiteIntegrityChecker</div>
+    <div class="vf-desc">计算文件的 SHA256 哈希值，查 SQLite 数据库。如果文件已经处理过且没变化，直接跳过，省时间省 API 调用。</div>
+  </div>
+  <div class="vflow-item">
+    <span class="vf-num">阶段 2</span>
+    <div class="vf-title">文档加载 — PdfLoader</div>
+    <div class="vf-desc">用 markitdown 把 PDF 转成 Markdown 文本，同时提取图片。输出一个 <code>Document</code> 对象。</div>
+  </div>
+  <div class="vflow-item">
+    <span class="vf-num">阶段 3</span>
+    <div class="vf-title">分块 — DocumentChunker</div>
+    <div class="vf-desc">按配置的 chunk_size（默认 1000 字符）把文档切成小块，块之间有 200 字符重叠，防止关键信息被切断。输出 <code>List[Chunk]</code>。</div>
+  </div>
+  <div class="vflow-item">
+    <span class="vf-num">阶段 4</span>
+    <div class="vf-title">转换 — ChunkRefiner + MetadataEnricher + ImageCaptioner</div>
+    <div class="vf-desc">清洗块边界文本、用 LLM 补充标题/标签/摘要等元数据、用视觉模型给图片加文字描述。</div>
+  </div>
+  <div class="vflow-item">
+    <span class="vf-num">阶段 5</span>
+    <div class="vf-title">编码 — DenseEncoder + SparseEncoder</div>
+    <div class="vf-desc">调用 Embedding API 生成向量（Dense），同时统计词频生成 BM25 索引数据（Sparse）。两条路并行产出。</div>
+  </div>
+  <div class="vflow-item">
+    <span class="vf-num">阶段 6</span>
+    <div class="vf-title">存储 — VectorUpserter + BM25Indexer + ImageStorage</div>
+    <div class="vf-desc">向量写入 ChromaDB，BM25 索引落盘，图片注册到 SQLite。最后在 ingestion_history 里标记完成。</div>
+  </div>
+</div>
+
+<h4>关键数据类型流转</h4>
+<pre><code><span class="var">Document</span>  →  <span class="var">Chunk</span>  →  <span class="var">ChunkRecord</span>
+  (原始文档)     (分块后)      (分块 + 向量)</code></pre>
+</section>
+
+<!-- ── Layer 3: Query Engine ── -->
+<section id="layer-query">
+<h3>3️⃣ Query Engine — 检索"找东西"的核心</h3>
+<p>用户提问后，从知识库里找出最相关的文档片段。核心是 <strong>混合检索（Hybrid Search）</strong>。</p>
+
+<div class="flow">
+  <div class="flow-step" style="border-color:var(--accent);">
+    <div class="step-icon"> </div>
+    <div class="step-label">QueryProcessor</div>
+    <div class="step-desc">jieba 分词 + 停用词过滤</div>
+  </div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step" style="border-color:var(--accent2);">
+    <div class="step-icon">⚡</div>
+    <div class="step-label">并行双路检索</div>
+    <div class="step-desc">Dense + Sparse 同时跑</div>
+  </div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step" style="border-color:var(--accent3);">
+    <div class="step-icon"> </div>
+    <div class="step-label">RRF 融合</div>
+    <div class="step-desc">1/(60+rank) 合并排名</div>
+  </div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step" style="border-color:var(--accent4);">
+    <div class="step-icon"> </div>
+    <div class="step-label">元数据过滤</div>
+    <div class="step-desc">按集合/类型/标签筛选</div>
+  </div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step" style="border-color:var(--accent5);">
+    <div class="step-icon"> </div>
+    <div class="step-label">返回结果</div>
+    <div class="step-desc">List[RetrievalResult]</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-title">为什么要混合检索？</div>
+  <div class="grid-2">
+    <div>
+      <h4 style="color:var(--accent2);">Dense（向量搜索）</h4>
+      <p style="font-size:13px;color:var(--text-dim);">
+        把问题向量化 → 在 ChromaDB 里做余弦相似度搜索。<br>
+        <strong>优势：</strong>理解语义，"猫"和"猫咪"能匹配上。<br>
+        <strong>劣势：</strong>可能忽略精确关键词。
+      </p>
+    </div>
+    <div>
+      <h4 style="color:var(--accent5);">Sparse（BM25 关键词搜索）</h4>
+      <p style="font-size:13px;color:var(--text-dim);">
+        用关键词在 BM25 索引里打分。<br>
+        <strong>优势：</strong>精确匹配关键词很准。<br>
+        <strong>劣势：</strong>不懂语义，"猫"和"猫咪"对它来说是不同的词。
+      </p>
+    </div>
+  </div>
+</div>
+
+<div class="highlight">
+  <strong>RRF 融合为什么不用原始分数？</strong><br>
+  因为两条路线的分数不可比——向量搜索的分数是 0~1（余弦相似度），BM25 的分数可以是任意正数。
+  RRF 只看"你在这条路线里排第几名"，用 <code>1/(60+rank)</code> 公式来统一，简单有效。
+</div>
+
+<div class="note">
+  <strong>⚠️ 优雅降级：</strong>如果 Dense 挂了就用 Sparse-only，反之亦然。两个都挂才报错。
+</div>
+</section>
+
+<!-- ── Layer 4: Response ── -->
+<section id="layer-response">
+<h3>4️⃣ Response — 组装"漂亮答案"的层</h3>
+<p>把检索到的原始结果，整理成人可读的 Markdown 答案。</p>
+
+<div class="grid-3">
+  <div class="card">
+    <div class="card-title"> CitationGenerator</div>
+    <p style="font-size:13px;color:var(--text-dim);">
+      给每个结果生成 <code>[1]</code> <code>[2]</code> 引用标记，提取来源路径、页码、相关度百分比。
+    </p>
+  </div>
+  <div class="card">
+    <div class="card-title">️ MultimodalAssembler</div>
+    <p style="font-size:13px;color:var(--text-dim);">
+      如果结果涉及图片，加载文件 → 检测 MIME 类型 → base64 编码 → 和文本一起返回。
+    </p>
+  </div>
+  <div class="card">
+    <div class="card-title"> ResponseBuilder</div>
+    <p style="font-size:13px;color:var(--text-dim);">
+      把上面的内容拼成结构化 Markdown，同时输出 JSON 供程序解析。
+    </p>
+  </div>
+</div>
+
+<h4>输出格式示例</h4>
+<pre><code>## 检索结果
+
+### 结果 1 [1]
+- 来源: <span class="string">技术文档.pdf</span>
+- 页码: <span class="var">3</span>
+- 相关度: <span class="var">92.5%</span>
+
+> <span class="comment">检索到的文本内容...</span>
+
+## 引用来源
+[1] <span class="string">技术文档.pdf</span> (<span class="keyword">第3页</span>)</code></pre>
+</section>
+
+<!-- ── Layer 5: Observability ── -->
+<section id="layer-observe">
+<h3>5️⃣ Observability — "监控仪表盘"</h3>
+<p>记录和可视化每一次查询/摄入的详细过程。</p>
+
+<table>
+  <thead><tr><th>Dashboard 页面</th><th>你能看到什么</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Overview</strong></td><td>当前用的什么 LLM / Embedding / 向量库，集合里有多少条数据</td></tr>
+    <tr><td><strong>Data Browser</strong></td><td>浏览已存储的文档和分块</td></tr>
+    <tr><td><strong>Ingestion Manager</strong></td><td>上传文档、触发摄入</td></tr>
+    <tr><td><strong>Ingestion Traces</strong></td><td>每份文档的 6 阶段耗时瀑布图</td></tr>
+    <tr><td><strong>Query Traces</strong></td><td>每次查询的完整流水线：dense vs sparse 命中数、融合结果、各阶段耗时柱状图</td></tr>
+    <tr><td><strong>Evaluation Panel</strong></td><td>RAGAS 评估：忠实度、答案相关性、上下文精确度</td></tr>
+  </tbody>
+</table>
+
+<div class="highlight">
+  <strong>实现机制：</strong>在查询和摄入的每个阶段调用 <code>trace.record_stage(name, data, elapsed_ms)</code>，
+  记录耗时和中间数据，写入 <code>logs/traces.jsonl</code>。Dashboard 读取这个文件并可视化。
+</div>
+</section>
+
+<!-- ══════════════════════════════════════════ -->
+<!-- SECTION: Data Flow -->
+<!-- ══════════════════════════════════════════ -->
+<section id="dataflow">
+<h2><span class="icon"> </span> 数据流全貌</h2>
+
+<h3>文档摄入流程</h3>
+<div class="flow">
+  <div class="flow-step"><div class="step-icon"> </div><div class="step-label">PDF</div><div class="step-desc">原始文档</div></div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step"><div class="step-icon"> </div><div class="step-label">SHA256</div><div class="step-desc">去重检查</div></div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step"><div class="step-icon"> </div><div class="step-label">加载</div><div class="step-desc">PDF→Markdown</div></div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step"><div class="step-icon">✂️</div><div class="step-label">分块</div><div class="step-desc">1000字/块</div></div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step"><div class="step-icon"> </div><div class="step-label">转换</div><div class="step-desc">清洗+元数据</div></div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step"><div class="step-icon"> </div><div class="step-label">编码</div><div class="step-desc">向量+BM25</div></div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step"><div class="step-icon"> ️</div><div class="step-label">存储</div><div class="step-desc">ChromaDB</div></div>
+</div>
+
+<h3>查询回答流程</h3>
+<div class="flow">
+  <div class="flow-step" style="border-color:var(--accent5);"><div class="step-icon"> </div><div class="step-label">用户提问</div><div class="step-desc">MCP Client</div></div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step" style="border-color:var(--accent);"><div class="step-icon"> </div><div class="step-label">分词</div><div class="step-desc">jieba + 停用词</div></div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step" style="border-color:var(--accent2);"><div class="step-icon">⚡</div><div class="step-label">双路检索</div><div class="step-desc">Dense ∥ Sparse</div></div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step" style="border-color:var(--accent3);"><div class="step-icon"> </div><div class="step-label">RRF融合</div><div class="step-desc">排名合并</div></div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step" style="border-color:var(--accent4);"><div class="step-icon"> ️</div><div class="step-label">组装答案</div><div class="step-desc">Markdown+引用</div></div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step" style="border-color:var(--accent5);"><div class="step-icon"> </div><div class="step-label">返回</div><div class="step-desc">CallToolResult</div></div>
+</div>
+</section>
+
+<!-- ══════════════════════════════════════════ -->
+<!-- SECTION: Setup Steps -->
+<!-- ══════════════════════════════════════════ -->
+<section id="setup">
+<h2><span class="icon"> </span> 运行步骤（从零开始）</h2>
+<p>以下每一步都说明了<strong>做什么</strong>和<strong>为什么要这样做</strong>。</p>
+
+<!-- Step 0 -->
+<div class="step" id="step0" data-step="0">
+  <h3><span class="step-num">0</span>安装工具：uv 包管理器</h3>
+  <pre><code><span class="comment"># Windows PowerShell</span>
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+<span class="comment"># macOS / Linux</span>
+curl -LsSf https://astral.sh/uv/install.sh | sh</code></pre>
+  <div class="why">
+    <strong>为什么要这样做？</strong><br>
+    这个项目依赖十几个外部库（chromadb 做向量存储、jieba 做中文分词、mcp 做协议通信等）。
+    你需要一个包管理器来统一下载和管理它们，确保版本对得上。<br>
+    <strong>为什么用 uv 而不是 pip？strong> uv 比 pip 快 10-100 倍，能自动管理虚拟环境，锁定依赖版本，避免"在我机器上能跑"的问题。
+  </div>
+</div>
+
+<!-- Step 1 -->
+<div class="step" id="step1" data-step="1">
+  <h3><span class="step-num">1</span>创建虚拟环境 + 安装依赖</h3>
+  <pre><code><span class="keyword">cd</span> D:\MODULAR-RAG-MCP-SERVER
+<span class="fn">uv sync</span> --extra dev</code></pre>
+  <div class="why">
+    <strong>这一行做了什么？</strong><br>
+    ① 在项目目录下创建一个 <code>.venv/</code> 文件夹（虚拟环境）<br>
+    ② 根据 <code>pyproject.toml</code> 里的依赖清单，把所有需要的库装进去<br><br>
+    <strong>为什么要虚拟环境？</strong><br>
+    如果直接装到系统 Python 里，不同项目的依赖版本会冲突（A 项目要 numpy 1.x，B 项目要 numpy 2.x）。
+    虚拟环境相当于给每个项目一个独立的"小房间"，互不干扰。
+  </div>
+</div>
+
+<!-- Step 2 -->
+<div class="step" id="step2" data-step="2">
+  <h3><span class="step-num">2</span>配置 API 密钥</h3>
+  <pre><code><span class="comment"># 复制模板文件</span>
+<span class="fn">cp</span> config/test_credentials.yaml.example config/test_credentials.yaml</code></pre>
+  <p>然后编辑 <code>config/test_credentials.yaml</code>，填入你的 API Key：</p>
+  <pre><code><span class="var">mimo</span>:
+  <span class="keyword">api_key</span>: <span class="string">"你的密钥"</span>        <span class="comment"># 默认的 LLM（大语言模型）提供商</span>
+  <span class="keyword">model</span>: <span class="string">"mimo-v2-pro"</span>
+  <span class="keyword">base_url</span>: <span class="string">"https://token-plan-cn.xiaomimimo.com/v1"</span>
+
+<span class="var">minimax</span>:
+  <span class="keyword">api_key</span>: <span class="string">"你的密钥"</span>        <span class="comment"># 默认的 Embedding（向量化）提供商</span>
+  <span class="keyword">embedding_model</span>: <span class="string">"embo-01"</span>
+  <span class="keyword">base_url</span>: <span class="string">"https://api.minimax.chat/v1"</span></code></pre>
+  <div class="why">
+    <strong>为什么需要 API Key？</strong><br>
+    这个项目做两件需要 AI 能力的事：<br>
+    <strong>LLM（大语言模型）：</strong>用来回答问题、给图片加描述、补充元数据。<br>
+    <strong>Embedding（向量化）：</strong>把文本变成数学向量（1536 个数字的数组），这样计算机才能比较"两段话有多相似"。<br><br>
+    这些都是调用外部 AI 服务，所以需要密钥认证。<br>
+    <strong>为什么分两个提供商？</strong> 做文本理解和做向量化是两种不同的 AI 能力，没必要用同一家。
+  </div>
+</div>
+
+<!-- Step 3 -->
+<div class="step" id="step3" data-step="3">
+  <h3><span class="step-num">3</span>检查配置文件</h3>
+  <p>打开 <code>config/settings.yaml</code>，确认关键配置：</p>
+  <table>
+    <thead><tr><th>配置项</th><th>默认值</th><th>含义</th></tr></thead>
+    <tbody>
+      <tr><td><code>llm.provider</code></td><td><code>"openai"</code></td><td>用哪家 LLM（openai 兼容接口）</td></tr>
+      <tr><td><code>llm.model</code></td><td><code>"mimo-v2-pro"</code></td><td>用哪个模型</td></tr>
+      <tr><td><code>embedding.provider</code></td><td><code>"minimax"</code></td><td>用哪家向量化服务</td></tr>
+      <tr><td><code>embedding.dimensions</code></td><td><code>1536</code></td><td>向量是 1536 维的</td></tr>
+      <tr><td><code>vector_store.provider</code></td><td><code>"chroma"</code></td><td>用 ChromaDB 存向量</td></tr>
+      <tr><td><code>ingestion.chunk_size</code></td><td><code>1000</code></td><td>每 1000 个字符切一刀</td></tr>
+      <tr><td><code>ingestion.chunk_overlap</code></td><td><code>200</code></td><td>相邻块之间重叠 200 字符</td></tr>
+      <tr><td><code>rerank.enabled</code></td><td><code>false</code></td><td>重排序默认关了（省 API 调用）</td></tr>
+    </tbody>
+  </table>
+  <div class="why">
+    <strong>为什么需要配置文件？</strong><br>
+    因为这个项目是"可插拔"的——你可以换 LLM 提供商、换向量库、换切块大小，不用改代码，只改配置就行。<br><br>
+    <strong>chunk_size 和 chunk_overlap 是什么？</strong><br>
+    把文档切成小块才能精确检索。如果一块太大（比如一整章），搜索时会包含很多无关内容；太小又丢失上下文。
+    重叠 200 字符是为了防止在块的边界处把一句话切断。
+  </div>
+</div>
+
+<!-- Step 4 -->
+<div class="step" id="step4" data-step="4">
+  <h3><span class="step-num">4</span>验证环境能跑</h3>
+  <pre><code><span class="fn">uv run</span> python main.py</code></pre>
+  <div class="why">
+    <strong>为什么要先验证？</strong><br>
+    就像做菜前先检查有没有食材。如果这里报错（比如 API Key 没填、依赖没装好），后面所有步骤都会失败。
+    看到 "Settings loaded successfully" 就说明环境和配置都没问题。
+  </div>
+</div>
+
+<!-- Step 5 -->
+<div class="step" id="step5" data-step="5">
+  <h3><span class="step-num">5</span>把文档"喂"给系统</h3>
+  <pre><code><span class="comment"># 先用 --dry-run 试一下，只解析不真正入库</span>
+<span class="fn">uv run</span> python scripts/ingest.py --path tests/fixtures/sample_documents --dry-run
+
+<span class="comment"># 没问题后，真正执行入库</span>
+<span class="fn">uv run</span> python scripts/ingest.py --path tests/fixtures/sample_documents --collection demo</code></pre>
+  <div class="why">
+    <strong>这一步发生了什么？</strong><br>
+    PDF → SHA256 去重 → 提取文本和图片 → 切成小块 → 清洗+补充元数据 → 调 Embedding API 生成向量 → 向量存入 ChromaDB + BM25 索引落盘<br><br>
+    <strong>为什么要先 dry-run？</strong><br>
+    就像先排练再正式演出。dry-run 只跑解析流程，不真正调 API 和写数据库，可以提前发现格式问题，省钱省时间。<br><br>
+    <strong>为什么必须做这一步？</strong><br>
+    就像图书馆必须先采购、编目、上架，读者才能查到书。系统必须先把文档处理成向量存好，后面才能检索。
+  </div>
+</div>
+
+<!-- Step 6 -->
+<div class="step" id="step6" data-step="6">
+  <h3><span class="step-num">6</span>查询知识库</h3>
+  <pre><code><span class="fn">uv run</span> python scripts/query.py --query <span class="string">"什么是混合检索？"</span> --verbose</code></pre>
+  <div class="why">
+    <strong>这一步发生了什么？</strong><br>
+    你的问题 → jieba 分词提取关键词 → 同时跑 Dense（向量搜索）和 Sparse（BM25 关键词搜索）两条路线 → RRF 融合两路排名 → 返回 top-k 个最相关的文档块。<br><br>
+    <strong>为什么要搞两条路线？</strong><br>
+    Dense 理解语义但可能忽略精确关键词；Sparse 精确匹配但不懂语义。两条路一起跑，取长补短，召回率更高。
+  </div>
+</div>
+
+<!-- Step 7 -->
+<div class="step" id="step7" data-step="7">
+  <h3><span class="step-num">7</span>启动 Dashboard 可视化</h3>
+  <pre><code><span class="fn">uv run</span> python scripts/start_dashboard.py --port 8501</code></pre>
+  <p>浏览器打开 <code>http://localhost:8501</code>。</p>
+  <div class="why">
+    <strong>为什么要这个？</strong><br>
+    就像开车需要仪表盘。当你发现搜索结果不好时，Dashboard 能帮你定位问题——
+    是 Dense 没搜到东西？还是融合后排错了？还是 Rerank 把好的结果踢掉了？
+    它会用柱状图展示每个阶段的耗时，用表格展示每个阶段的中间结果。
+  </div>
+</div>
+
+<!-- Step 8 -->
+<div class="step" id="step8" data-step="8">
+  <h3><span class="step-num">8</span>把 MCP Server 接入 AI 助手</h3>
+  <pre><code><span class="comment"># 启动 MCP Server</span>
+<span class="fn">uv run</span> python -m src.mcp_server.server</code></pre>
+  <p>在 Claude Desktop 配置文件中添加：</p>
+  <pre><code>{
+  <span class="string">"mcpServers"</span>: {
+    <span class="string">"modular-rag"</span>: {
+      <span class="string">"command"</span>: <span class="string">"uv"</span>,
+      <span class="string">"args"</span>: [<span class="string">"run"</span>, <span class="string">"python"</span>, <span class="string">"-m"</span>, <span class="string">"src.mcp_server.server"</span>],
+      <span class="string">"cwd"</span>: <span class="string">"D:\\MODULAR-RAG-MCP-SERVER"</span>
+    }
+  }
+}</code></pre>
+  <div class="why">
+    <strong>为什么需要 MCP？</strong><br>
+    MCP 是一个标准协议，让 AI 助手知道"这里有一个工具可以用"。配好之后，你在 Claude Desktop 里问问题，
+    Claude 会自动调用 <code>query_knowledge_hub</code> 来搜你的知识库，然后把结果整合进它的回答。<br><br>
+    <strong>为什么用 stdio？</strong><br>
+    MCP Server 通过标准输入输出和客户端通信，不走网络端口。更安全——不需要开端口，不需要处理网络问题，进程间直接对话。
+  </div>
+</div>
+</section>
+
+<!-- ══════════════════════════════════════════ -->
+<!-- SECTION: Summary -->
+<!-- ══════════════════════════════════════════ -->
+<section id="summary">
+<h2><span class="icon"> </span> 总结：完整流程</h2>
+
+<div class="card" style="text-align:center;">
+  <div class="flow" style="justify-content:center;">
+    <div class="flow-step" style="border-color:var(--accent5);">
+      <div class="step-icon"> </div>
+      <div class="step-label">你的 PDF</div>
+      <div class="step-desc">原始文档</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step" style="border-color:var(--accent3);">
+      <div class="step-icon"> </div>
+      <div class="step-label">Ingestion</div>
+      <div class="step-desc">切块→向量化→存储</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step" style="border-color:var(--accent);">
+      <div class="step-icon"> </div>
+      <div class="step-label">MCP Server</div>
+      <div class="step-desc">等待提问</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step" style="border-color:var(--accent2);">
+      <div class="step-icon"> </div>
+      <div class="step-label">Query Engine</div>
+      <div class="step-desc">双路检索+融合</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step" style="border-color:var(--accent4);">
+      <div class="step-icon"> </div>
+      <div class="step-label">Response</div>
+      <div class="step-desc">Markdown答案</div>
+    </div>
+  </div>
+</div>
+
+<div class="analogy" style="margin-top:24px;">
+  <h4>一句话总结</h4>
+  <p style="font-size:15px;margin:0;">
+    <strong>先"喂书"（Ingestion），再"查书"（Query Engine），通过"服务窗口"（MCP Server）对外提供服务，用"监控室"（Observability）随时检查系统状态。</strong>
+    各层之间通过 <code>Document</code>、<code>Chunk</code>、<code>RetrievalResult</code> 等数据类型解耦，每层可以独立替换和测试。
+  </p>
+</div>
+</section>
+
+</main>
+</body>
+</html>
