@@ -78,6 +78,7 @@ evaluation:
     - "hit_rate"
     - "mrr"
     - "faithfulness"
+    - "answer_similarity"
 
 # =============================================================================
 # Observability Configuration

@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Modular RAG MCP Server | 互动项目展示</title>
+  <style>
+    :root {
+      --bg: #f7f9fc;
+      --surface: #ffffff;
+      --surface-2: #f1f5f9;
+      --surface-3: #e8eef6;
+      --text: #162033;
+      --muted: #637083;
+      --line: #d8e0ea;
+      --nav: rgba(255, 255, 255, 0.86);
+      --blue: #2563eb;
+      --cyan: #0891b2;
+      --green: #059669;
+      --amber: #b7791f;
+      --rose: #be3a64;
+      --violet: #6d5bd0;
+      --shadow: 0 18px 46px rgba(29, 44, 72, 0.12);
+      --radius: 8px;
+    }
+
+    [data-theme="dark"] {
+      --bg: #0e1420;
+      --surface: #151e2d;
+      --surface-2: #1b2738;
+      --surface-3: #223146;
+      --text: #edf3fb;
+      --muted: #aab7c7;
+      --line: #314055;
+      --nav: rgba(21, 30, 45, 0.9);
+      --shadow: 0 18px 48px rgba(0, 0, 0, 0.3);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+        "Microsoft YaHei", sans-serif;
+      color: var(--text);
+      background:
+        linear-gradient(120deg, rgba(37, 99, 235, 0.08), transparent 28%),
+        linear-gradient(250deg, rgba(5, 150, 105, 0.08), transparent 35%),
+        var(--bg);
+      line-height: 1.65;
+    }
+
+    a { color: inherit; text-decoration: none; }
+    code {
+      padding: 2px 6px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--surface-2);
+      font-family: "Cascadia Code", Consolas, monospace;
+      font-size: 0.92em;
+    }
+
+    .progress {
+      position: fixed;
+      left: 0;
+      top: 0;
+      z-index: 90;
+      height: 3px;
+      width: 0%;
+      background: linear-gradient(90deg, var(--blue), var(--green), var(--amber));
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 80;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      min-height: 64px;
+      padding: 10px clamp(18px, 4vw, 48px);
+      border-bottom: 1px solid var(--line);
+      background: var(--nav);
+      backdrop-filter: blur(18px);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 800;
+      letter-spacing: 0;
+      white-space: nowrap;
+    }
+
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 34px;
+      height: 34px;
+      border-radius: var(--radius);
+      color: #fff;
+      background: conic-gradient(from 120deg, var(--blue), var(--cyan), var(--green), var(--amber), var(--blue));
+      box-shadow: 0 8px 20px rgba(37, 99, 235, 0.22);
+      font-weight: 900;
+    }
+
+    .navlinks {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    .navlinks::-webkit-scrollbar { display: none; }
+    .navlinks a,
+    .theme-toggle {
+      border: 1px solid transparent;
+      border-radius: 999px;
+      color: var(--muted);
+      padding: 7px 12px;
+      font-size: 14px;
+      white-space: nowrap;
+      background: transparent;
+      cursor: pointer;
+      transition: color .18s, background .18s, border-color .18s;
+    }
+
+    .navlinks a:hover,
+    .navlinks a.active,
+    .theme-toggle:hover {
+      color: var(--text);
+      background: var(--surface-2);
+      border-color: var(--line);
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 240px;
+      gap: 28px;
+      width: min(1420px, 100%);
+      margin: 0 auto;
+      padding: 36px clamp(18px, 4vw, 48px) 80px;
+    }
+
+    main { min-width: 0; }
+    aside {
+      position: sticky;
+      top: 88px;
+      height: max-content;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      padding: 16px;
+    }
+
+    aside strong { display: block; margin-bottom: 10px; }
+    aside a {
+      display: block;
+      padding: 8px 10px;
+      border-radius: 6px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    aside a:hover,
+    aside a.active { color: var(--text); background: var(--surface-2); }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 0.92fr) minmax(420px, 1.08fr);
+      gap: 28px;
+      align-items: center;
+      min-height: calc(100vh - 138px);
+      padding-bottom: 28px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .eyebrow::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 0 5px rgba(5, 150, 105, 0.12);
+    }
+
+    h1 {
+      margin: 18px 0 14px;
+      max-width: 780px;
+      font-size: clamp(42px, 7vw, 82px);
+      line-height: 1.02;
+      letter-spacing: 0;
+    }
+
+    h1 span {
+      color: transparent;
+      background: linear-gradient(90deg, var(--blue), var(--green), var(--amber), var(--rose));
+      background-clip: text;
+      -webkit-background-clip: text;
+    }
+
+    .hero-copy {
+      max-width: 760px;
+      margin: 0 0 22px;
+      color: var(--muted);
+      font-size: 18px;
+    }
+
+    .hero-actions,
+    .tags,
+    .filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 40px;
+      padding: 9px 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--text);
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform .18s, box-shadow .18s, background .18s;
+    }
+    .button.primary {
+      border-color: transparent;
+      color: #fff;
+      background: linear-gradient(90deg, var(--blue), var(--cyan));
+    }
+    .button:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 6px 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 650;
+    }
+    .tag i {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--blue);
+    }
+    .tag:nth-child(2) i { background: var(--green); }
+    .tag:nth-child(3) i { background: var(--amber); }
+    .tag:nth-child(4) i { background: var(--rose); }
+    .tag:nth-child(5) i { background: var(--violet); }
+
+    .section {
+      margin: 30px 0 46px;
+      scroll-margin-top: 88px;
+    }
+
+    .section-head {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+    .section-kicker {
+      margin: 0 0 7px;
+      color: var(--cyan);
+      font-size: 13px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+    h2 {
+      margin: 0;
+      font-size: clamp(26px, 4vw, 40px);
+      line-height: 1.15;
+      letter-spacing: 0;
+    }
+    .section-head p {
+      max-width: 560px;
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .architecture {
+      position: relative;
+      min-height: 560px;
+      padding: 22px;
+      overflow: hidden;
+    }
+
+    .arch-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 16px;
+      min-height: 430px;
+    }
+
+    .arch-column {
+      display: grid;
+      align-content: center;
+      gap: 14px;
+      min-width: 0;
+    }
+
+    .arch-node {
+      position: relative;
+      border: 1px solid var(--line);
+      border-left: 5px solid var(--blue);
+      border-radius: var(--radius);
+      background: var(--surface);
+      padding: 14px;
+      cursor: pointer;
+      transition: transform .18s, border-color .18s, box-shadow .18s;
+    }
+    .arch-node:hover,
+    .arch-node.active {
+      transform: translateY(-2px);
+      border-color: color-mix(in srgb, var(--blue) 45%, var(--line));
+      box-shadow: 0 14px 30px rgba(37, 99, 235, 0.16);
+    }
+    .arch-node[data-color="green"] { border-left-color: var(--green); }
+    .arch-node[data-color="amber"] { border-left-color: var(--amber); }
+    .arch-node[data-color="rose"] { border-left-color: var(--rose); }
+    .arch-node[data-color="violet"] { border-left-color: var(--violet); }
+    .arch-node strong { display: block; margin-bottom: 3px; }
+    .arch-node span { color: var(--muted); font-size: 13px; }
+
+    .arch-core {
+      display: grid;
+      place-items: center;
+      min-height: 210px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background:
+        linear-gradient(135deg, rgba(37, 99, 235, 0.14), rgba(5, 150, 105, 0.12)),
+        var(--surface);
+      text-align: center;
+      padding: 22px;
+    }
+    .arch-core strong {
+      display: block;
+      font-size: 30px;
+      line-height: 1.12;
+      margin-bottom: 8px;
+    }
+    .arch-core small { color: var(--muted); }
+
+    .detail-panel {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 12px;
+      margin-top: 18px;
+    }
+    .detail-item {
+      min-height: 118px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface-2);
+      padding: 14px;
+    }
+    .detail-item span {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+    .detail-item p { margin: 0; }
+
+    .timeline {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .step {
+      position: relative;
+      min-height: 220px;
+      padding: 16px;
+      overflow: hidden;
+      cursor: pointer;
+    }
+    .step::before {
+      content: attr(data-num);
+      position: absolute;
+      right: 12px;
+      top: 6px;
+      color: var(--surface-3);
+      font-size: 58px;
+      font-weight: 900;
+      line-height: 1;
+    }
+    .step.active { outline: 2px solid var(--cyan); }
+    .step strong { position: relative; display: block; margin-bottom: 8px; font-size: 18px; }
+    .step p, .step ul { position: relative; color: var(--muted); margin: 0; }
+    .step ul { padding-left: 18px; margin-top: 10px; }
+
+    .matrix {
+      overflow: hidden;
+    }
+    .filters { margin-bottom: 14px; }
+    .filter {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--surface);
+      color: var(--muted);
+      padding: 7px 12px;
+      cursor: pointer;
+      font-weight: 700;
+    }
+    .filter.active { color: #fff; background: var(--text); border-color: var(--text); }
+
+    .provider-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .provider {
+      min-height: 178px;
+      padding: 16px;
+      transition: opacity .18s, transform .18s;
+    }
+    .provider.hidden { display: none; }
+    .provider h3 { margin: 0 0 8px; font-size: 18px; }
+    .provider p { margin: 0 0 12px; color: var(--muted); font-size: 14px; }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .chip {
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: var(--surface-2);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .tools-grid,
+    .dashboard-grid,
+    .resume-grid,
+    .future-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .info-card {
+      padding: 18px;
+      min-height: 190px;
+    }
+    .info-card h3 { margin: 0 0 8px; font-size: 20px; }
+    .info-card p { margin: 0 0 14px; color: var(--muted); }
+    .info-card ul { margin: 0; padding-left: 18px; color: var(--muted); }
+
+    .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .tab {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--muted);
+      padding: 9px 12px;
+      cursor: pointer;
+      font-weight: 750;
+    }
+    .tab.active { color: #fff; background: var(--blue); border-color: var(--blue); }
+    .tab-panel { display: none; padding: 18px; }
+    .tab-panel.active { display: block; }
+
+    .command-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .command {
+      overflow: hidden;
+    }
+    .command-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      background: var(--surface-2);
+      font-weight: 800;
+    }
+    pre {
+      margin: 0;
+      padding: 16px;
+      overflow-x: auto;
+      color: var(--text);
+      background: #0c1220;
+    }
+    pre code {
+      padding: 0;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      color: #e8f0ff;
+      font-size: 14px;
+      line-height: 1.55;
+    }
+    .copy {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--surface);
+      color: var(--muted);
+      cursor: pointer;
+      font-weight: 800;
+    }
+
+    .quote {
+      padding: 22px;
+      border-left: 5px solid var(--green);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 18px;
+      font-weight: 750;
+    }
+
+    footer {
+      margin-top: 54px;
+      padding-top: 24px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    @media (max-width: 1180px) {
+      .layout { grid-template-columns: 1fr; }
+      aside { display: none; }
+      .hero { grid-template-columns: 1fr; min-height: auto; }
+      .architecture { min-height: auto; }
+    }
+
+    @media (max-width: 860px) {
+      .topbar { align-items: flex-start; flex-direction: column; }
+      .navlinks { width: 100%; }
+      .arch-grid,
+      .detail-panel,
+      .timeline,
+      .provider-grid,
+      .tools-grid,
+      .dashboard-grid,
+      .resume-grid,
+      .future-grid,
+      .command-grid {
+        grid-template-columns: 1fr;
+      }
+      .hero-copy { font-size: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="progress" id="progress"></div>
+  <header class="topbar">
+    <a class="brand" href="#top" aria-label="回到顶部">
+      <span class="brand-mark">R</span>
+      <span>Modular RAG MCP Server</span>
+    </a>
+    <nav class="navlinks" aria-label="主导航">
+      <a href="#architecture">架构</a>
+      <a href="#flow">链路</a>
+      <a href="#providers">Provider</a>
+      <a href="#tools">MCP Tools</a>
+      <a href="#dashboard">观测评估</a>
+      <a href="#commands">启动</a>
+      <a href="#interview">面试表达</a>
+      <button class="theme-toggle" id="themeToggle" type="button">切换主题</button>
+    </nav>
+  </header>
+
+  <div class="layout" id="top">
+    <main>
+      <section class="hero" aria-labelledby="hero-title">
+        <div>
+          <span class="eyebrow">面向 RAG 工程、MCP 集成与面试讲解的完整项目</span>
+          <h1 id="hero-title">把 RAG 项目讲成一个<span>可运行的工程系统</span></h1>
+          <p class="hero-copy">
+            这个展示页把仓库里的摄取、混合检索、重排、MCP 工具、Streamlit Dashboard、Trace
+            与评估体系串成一条可演示的故事线。打开它，就能从产品价值讲到工程细节。
+          </p>
+          <div class="tags" aria-label="核心能力标签">
+            <span class="tag"><i></i>Hybrid Search</span>
+            <span class="tag"><i></i>MCP Tools</span>
+            <span class="tag"><i></i>Multimodal Ingestion</span>
+            <span class="tag"><i></i>Ragas + Custom Eval</span>
+            <span class="tag"><i></i>Observable Pipeline</span>
+          </div>
+          <div class="hero-actions" style="margin-top: 22px;">
+            <a class="button primary" href="#architecture">查看架构</a>
+            <a class="button" href="#commands">快速启动</a>
+          </div>
+        </div>
+
+        <div class="card architecture" aria-label="架构主视觉">
+          <div class="arch-grid">
+            <div class="arch-column">
+              <button class="arch-node active" data-module="ingestion" data-color="green" type="button">
+                <strong>Ingestion Pipeline</strong>
+                <span>PDF、图片、Chunk、Transform、Embedding、Storage</span>
+              </button>
+              <button class="arch-node" data-module="providers" data-color="violet" type="button">
+                <strong>Provider Factories</strong>
+                <span>LLM / Embedding / Reranker / VectorStore 可插拔</span>
+              </button>
+            </div>
+            <div class="arch-column">
+              <div class="arch-core">
+                <div>
+                  <strong>RAG Core + MCP</strong>
+                  <small>Hybrid retrieval, rerank, response building, protocol tools</small>
+                </div>
+              </div>
+            </div>
+            <div class="arch-column">
+              <button class="arch-node" data-module="mcp" data-color="blue" type="button">
+                <strong>MCP Server</strong>
+                <span>query_knowledge_hub、list_collections、get_document_summary</span>
+              </button>
+              <button class="arch-node" data-module="observability" data-color="amber" type="button">
+                <strong>Observability</strong>
+                <span>Trace、Dashboard、Evaluation、Regression feedback</span>
+              </button>
+            </div>
+          </div>
+          <div class="detail-panel" id="archDetails" aria-live="polite"></div>
+        </div>
+      </section>
+
+      <section class="section" id="architecture">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">System Architecture</p>
+            <h2>从模块到面试故事的架构图</h2>
+          </div>
+          <p>核心不是“有几个文件”，而是每层都有清晰职责：摄取负责数据质量，检索负责召回，MCP 负责对外能力，观测评估负责持续优化。</p>
+        </div>
+        <div class="tools-grid">
+          <article class="card info-card">
+            <h3>数据进入系统</h3>
+            <p>通过 `IngestionPipeline` 统一编排加载、分块、增强、编码和入库，支持 SHA256 增量跳过。</p>
+            <ul>
+              <li>PDF loader with image extraction</li>
+              <li>Chunk refinement and metadata enrichment</li>
+              <li>ChromaDB + BM25 index</li>
+            </ul>
+          </article>
+          <article class="card info-card">
+            <h3>查询被拆成能力链</h3>
+            <p>查询先经过 dense/sparse 双路召回，再通过 RRF 融合和可选 rerank，最后构造成带引用的响应。</p>
+            <ul>
+              <li>Dense semantic retrieval</li>
+              <li>BM25 sparse retrieval</li>
+              <li>Citation-aware response builder</li>
+            </ul>
+          </article>
+          <article class="card info-card">
+            <h3>能力通过 MCP 暴露</h3>
+            <p>ProtocolHandler 统一注册工具，让 Copilot、Claude Desktop 等 MCP Client 可以直接调用知识库能力。</p>
+            <ul>
+              <li>JSON Schema tool inputs</li>
+              <li>Async tool execution</li>
+              <li>Graceful error handling</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="flow">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">End-to-End Flow</p>
+            <h2>五步讲清完整 RAG 链路</h2>
+          </div>
+          <p>点击每一步可以看到它在项目中的职责。面试时按这条线讲，能自然覆盖工程化、可观测和效果优化。</p>
+        </div>
+        <div class="timeline" id="timeline">
+          <article class="card step active" data-num="01">
+            <strong>数据摄取</strong>
+            <p>从 PDF 和图片开始，做完整性检查、解析、图片存储与原始文档结构化。</p>
+            <ul><li>PdfLoader</li><li>SQLiteIntegrityChecker</li></ul>
+          </article>
+          <article class="card step" data-num="02">
+            <strong>分块增强</strong>
+            <p>通过 splitter、chunk refiner、metadata enricher 和 image captioner 提升 chunk 可检索性。</p>
+            <ul><li>DocumentChunker</li><li>Vision LLM captions</li></ul>
+          </article>
+          <article class="card step" data-num="03">
+            <strong>混合检索</strong>
+            <p>Dense 向量召回负责语义，BM25 负责关键词，RRF 把两路结果融合。</p>
+            <ul><li>HybridSearch</li><li>Dense + Sparse</li></ul>
+          </article>
+          <article class="card step" data-num="04">
+            <strong>重排生成</strong>
+            <p>可选 Cross-Encoder 或 LLM rerank，随后 ResponseBuilder 生成带引用的工具响应。</p>
+            <ul><li>CoreReranker</li><li>CitationGenerator</li></ul>
+          </article>
+          <article class="card step" data-num="05">
+            <strong>观测评估</strong>
+            <p>Trace 记录中间状态，Dashboard 展示链路，Ragas/Custom Evaluator 做回归评估。</p>
+            <ul><li>TraceCollector</li><li>EvalRunner</li></ul>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="providers">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">Provider Matrix</p>
+            <h2>可插拔能力矩阵</h2>
+          </div>
+          <p>项目用 factory/base-class 模式把服务商差异收束在 `src/libs/`，配置切换后端，主链路尽量不感知具体 provider。</p>
+        </div>
+        <div class="filters" id="providerFilters">
+          <button class="filter active" data-filter="all" type="button">全部</button>
+          <button class="filter" data-filter="model" type="button">模型侧</button>
+          <button class="filter" data-filter="retrieval" type="button">检索侧</button>
+          <button class="filter" data-filter="quality" type="button">质量侧</button>
+        </div>
+        <div class="provider-grid">
+          <article class="card provider" data-category="model">
+            <h3>LLM</h3>
+            <p>文本生成与 chunk 增强能力，通过 LLMFactory 管理。</p>
+            <div class="chips"><span class="chip">openai</span><span class="chip">azure</span><span class="chip">deepseek</span><span class="chip">ollama</span><span class="chip">minimax</span></div>
+          </article>
+          <article class="card provider" data-category="model">
+            <h3>Vision LLM</h3>
+            <p>用于图片理解和 image captioning，让图片内容进入文本 RAG 链路。</p>
+            <div class="chips"><span class="chip">azure</span><span class="chip">openai</span></div>
+          </article>
+          <article class="card provider" data-category="retrieval">
+            <h3>Embedding</h3>
+            <p>负责 dense vector 编码，接入多种 embedding provider。</p>
+            <div class="chips"><span class="chip">openai</span><span class="chip">azure</span><span class="chip">ollama</span><span class="chip">minimax</span></div>
+          </article>
+          <article class="card provider" data-category="retrieval">
+            <h3>Vector Store</h3>
+            <p>向量存储抽象，当前自动注册 ChromaStore。</p>
+            <div class="chips"><span class="chip">chroma</span><span class="chip">collection</span><span class="chip">persistent</span></div>
+          </article>
+          <article class="card provider" data-category="quality">
+            <h3>Evaluator</h3>
+            <p>质量评估抽象，支持 custom、ragas、composite 和 disabled fallback。</p>
+            <div class="chips"><span class="chip">custom</span><span class="chip">ragas</span><span class="chip">composite</span><span class="chip">none</span></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="tools">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">MCP Tools</p>
+            <h2>对外暴露的三类知识库工具</h2>
+          </div>
+          <p>这些工具是项目和 Agent 生态之间的接口。它们让 RAG 不只是脚本，而是可被模型客户端直接调用的能力。</p>
+        </div>
+        <div class="tabs" role="tablist" aria-label="MCP Tools">
+          <button class="tab active" data-tab="query" type="button">query_knowledge_hub</button>
+          <button class="tab" data-tab="collections" type="button">list_collections</button>
+          <button class="tab" data-tab="summary" type="button">get_document_summary</button>
+        </div>
+        <div class="card tab-panel active" id="tab-query">
+          <h3>query_knowledge_hub</h3>
+          <p>输入 query、top_k、collection，走混合检索与可选重排，返回带 source citation 的结果。适合讲“Agent 如何访问知识库”。</p>
+          <code>src/mcp_server/tools/query_knowledge_hub.py</code>
+        </div>
+        <div class="card tab-panel" id="tab-collections">
+          <h3>list_collections</h3>
+          <p>枚举当前知识库集合，让客户端知道有哪些文档空间可查询。适合讲多 collection 管理和数据边界。</p>
+          <code>src/mcp_server/tools/list_collections.py</code>
+        </div>
+        <div class="card tab-panel" id="tab-summary">
+          <h3>get_document_summary</h3>
+          <p>围绕指定文档生成摘要或结构化概览，适合在演示中展示“先理解文档，再问具体问题”的交互路径。</p>
+          <code>src/mcp_server/tools/get_document_summary.py</code>
+        </div>
+      </section>
+
+      <section class="section" id="dashboard">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">Observability & Evaluation</p>
+            <h2>把 RAG 从黑盒变成可调系统</h2>
+          </div>
+          <p>面试里最容易拉开差距的点，是能否解释“效果不好时怎么定位”。这个项目给了链路追踪、Dashboard 和评估回归三件工具。</p>
+        </div>
+        <div class="dashboard-grid">
+          <article class="card info-card">
+            <h3>Streamlit Dashboard</h3>
+            <p>多页面管理入口，覆盖 Overview、Data Browser、Ingestion Manager、Trace 和 Evaluation Panel。</p>
+            <code>src/observability/dashboard/app.py</code>
+          </article>
+          <article class="card info-card">
+            <h3>Trace System</h3>
+            <p>TraceContext 和 TraceCollector 记录摄取/查询中间状态，支撑回放、排查和演示。</p>
+            <code>src/core/trace/trace_collector.py</code>
+          </article>
+          <article class="card info-card">
+            <h3>Evaluation Runner</h3>
+            <p>Custom/Ragas/Composite 评估体系用于 golden set 回归，帮助用指标驱动迭代。</p>
+            <code>src/observability/evaluation/eval_runner.py</code>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="commands">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">Quick Start</p>
+            <h2>演示前的启动命令</h2>
+          </div>
+          <p>所有命令都来自仓库现有入口。点击复制后可以直接粘贴到终端。</p>
+        </div>
+        <div class="command-grid">
+          <article class="card command">
+            <div class="command-head">安装依赖 <button class="copy" data-copy="uv sync --extra dev" type="button">复制</button></div>
+            <pre><code>uv sync --extra dev</code></pre>
+          </article>
+          <article class="card command">
+            <div class="command-head">启动 MCP Server <button class="copy" data-copy="python main.py" type="button">复制</button></div>
+            <pre><code>python main.py</code></pre>
+          </article>
+          <article class="card command">
+            <div class="command-head">运行摄取脚本 <button class="copy" data-copy="python scripts/ingest.py" type="button">复制</button></div>
+            <pre><code>python scripts/ingest.py</code></pre>
+          </article>
+          <article class="card command">
+            <div class="command-head">启动 Dashboard <button class="copy" data-copy="python scripts/start_dashboard.py" type="button">复制</button></div>
+            <pre><code>python scripts/start_dashboard.py</code></pre>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="interview">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">Interview Pitch</p>
+            <h2>面试时可以这样讲</h2>
+          </div>
+          <p>这里把项目压缩成“能讲、能追问、能展示”的表达材料。</p>
+        </div>
+        <div class="card quote">
+          我做了一个模块化 RAG MCP Server，把文档摄取、混合检索、重排、MCP 工具暴露、可观测 Dashboard 和评估回归串成完整工程链路，核心特点是可插拔、可追踪、可被 Agent 客户端直接调用。
+        </div>
+        <div class="resume-grid" style="margin-top: 14px;">
+          <article class="card info-card">
+            <h3>技术亮点</h3>
+            <ul>
+              <li>BM25 + Dense + RRF + Rerank</li>
+              <li>Vision captioning 复用文本 RAG</li>
+              <li>Factory pattern 管理 provider</li>
+            </ul>
+          </article>
+          <article class="card info-card">
+            <h3>可追问点</h3>
+            <ul>
+              <li>为什么混合检索优于单向量召回</li>
+              <li>如何处理图片和 PDF 中的非文本信息</li>
+              <li>如何用 trace 定位召回质量问题</li>
+            </ul>
+          </article>
+          <article class="card info-card">
+            <h3>演示路径</h3>
+            <ul>
+              <li>先启动 Dashboard 看数据和 trace</li>
+              <li>再通过 MCP 工具查询知识库</li>
+              <li>最后展示 evaluation 回归结果</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="future">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">Extension Roadmap</p>
+            <h2>后续扩展方向</h2>
+          </div>
+          <p>这些方向适合继续把项目从 RAG 工程扩展到 Agent 应用、生产部署和高级检索。</p>
+        </div>
+        <div class="future-grid">
+          <article class="card info-card">
+            <h3>Agent + RAG</h3>
+            <p>把 MCP Server 作为 Agent 的知识工具，加入规划、工具选择、记忆和多轮任务执行。</p>
+          </article>
+          <article class="card info-card">
+            <h3>部署与监控</h3>
+            <p>补充 Docker、CI/CD、结构化日志、指标采集和线上告警，展示后端工程能力。</p>
+          </article>
+          <article class="card info-card">
+            <h3>Graph / Agentic RAG</h3>
+            <p>增加实体关系、查询改写、多跳检索和自动评估闭环，继续提升复杂问题回答能力。</p>
+          </article>
+        </div>
+      </section>
+
+      <footer>
+        <p>Static showcase page. No external assets, no build step. Open <code>docs/project_showcase.html</code> directly in a browser.</p>
+      </footer>
+    </main>
+
+    <aside aria-label="页面目录">
+      <strong>页面目录</strong>
+      <a href="#architecture">架构概览</a>
+      <a href="#flow">RAG 链路</a>
+      <a href="#providers">Provider 矩阵</a>
+      <a href="#tools">MCP Tools</a>
+      <a href="#dashboard">观测评估</a>
+      <a href="#commands">启动命令</a>
+      <a href="#interview">面试表达</a>
+      <a href="#future">扩展方向</a>
+    </aside>
+  </div>
+
+  <script>
+    const moduleDetails = {
+      ingestion: {
+        role: "把原始文档变成可检索资产：完整性检查、PDF 解析、分块、增强、图片描述、向量与 BM25 入库。",
+        files: "src/ingestion/pipeline.py, src/ingestion/chunking/, src/ingestion/storage/",
+        pitch: "我会强调它不是单脚本，而是可观测、可增量、可替换 provider 的摄取流水线。"
+      },
+      providers: {
+        role: "用 factory/base-class 模式隔离 provider 差异，让 LLM、Embedding、Reranker、VectorStore、Evaluator 都能按配置替换。",
+        files: "src/libs/llm/, src/libs/embedding/, src/libs/reranker/, src/libs/evaluator/",
+        pitch: "这里适合讲工程解耦：主链路依赖抽象，服务商适配集中在 libs 层。"
+      },
+      mcp: {
+        role: "通过 MCP ProtocolHandler 注册工具，让模型客户端以标准 JSON Schema 调用知识库能力。",
+        files: "src/mcp_server/protocol_handler.py, src/mcp_server/tools/",
+        pitch: "这里适合讲 Agent 生态集成：RAG 不只服务网页，也能成为模型工具。"
+      },
+      observability: {
+        role: "用 trace、dashboard 和 evaluator 把每次摄取/查询从黑盒变成可复盘的数据链路。",
+        files: "src/core/trace/, src/observability/dashboard/, src/observability/evaluation/",
+        pitch: "当效果不好时，先看召回、重排、上下文和评估指标，而不是盲目调 prompt。"
+      }
+    };
+
+    function renderDetails(key) {
+      const data = moduleDetails[key];
+      const container = document.getElementById("archDetails");
+      container.innerHTML = `
+        <div class="detail-item"><span>职责</span><p>${data.role}</p></div>
+        <div class="detail-item"><span>关键路径</span><p><code>${data.files}</code></p></div>
+        <div class="detail-item"><span>面试讲法</span><p>${data.pitch}</p></div>
+      `;
+    }
+
+    document.querySelectorAll(".arch-node").forEach((node) => {
+      node.addEventListener("click", () => {
+        document.querySelectorAll(".arch-node").forEach((item) => item.classList.remove("active"));
+        node.classList.add("active");
+        renderDetails(node.dataset.module);
+      });
+    });
+    renderDetails("ingestion");
+
+    document.querySelectorAll(".step").forEach((step) => {
+      step.addEventListener("click", () => {
+        document.querySelectorAll(".step").forEach((item) => item.classList.remove("active"));
+        step.classList.add("active");
+      });
+    });
+
+    document.querySelectorAll(".filter").forEach((button) => {
+      button.addEventListener("click", () => {
+        const filter = button.dataset.filter;
+        document.querySelectorAll(".filter").forEach((item) => item.classList.remove("active"));
+        button.classList.add("active");
+        document.querySelectorAll(".provider").forEach((card) => {
+          card.classList.toggle("hidden", filter !== "all" && card.dataset.category !== filter);
+        });
+      });
+    });
+
+    document.querySelectorAll(".tab").forEach((tab) => {
+      tab.addEventListener("click", () => {
+        const target = tab.dataset.tab;
+        document.querySelectorAll(".tab").forEach((item) => item.classList.remove("active"));
+        document.querySelectorAll(".tab-panel").forEach((panel) => panel.classList.remove("active"));
+        tab.classList.add("active");
+        document.getElementById(`tab-${target}`).classList.add("active");
+      });
+    });
+
+    document.querySelectorAll(".copy").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const original = button.textContent;
+        try {
+          await navigator.clipboard.writeText(button.dataset.copy);
+          button.textContent = "已复制";
+        } catch (error) {
+          button.textContent = "复制失败";
+        }
+        window.setTimeout(() => {
+          button.textContent = original;
+        }, 1300);
+      });
+    });
+
+    const themeToggle = document.getElementById("themeToggle");
+    themeToggle.addEventListener("click", () => {
+      const root = document.documentElement;
+      const next = root.dataset.theme === "dark" ? "light" : "dark";
+      root.dataset.theme = next;
+      localStorage.setItem("showcaseTheme", next);
+    });
+    const savedTheme = localStorage.getItem("showcaseTheme");
+    if (savedTheme) {
+      document.documentElement.dataset.theme = savedTheme;
+    }
+
+    const links = [...document.querySelectorAll(".navlinks a, aside a")];
+    const sections = links
+      .map((link) => document.querySelector(link.getAttribute("href")))
+      .filter(Boolean);
+
+    function updateScrollState() {
+      const scrollTop = window.scrollY;
+      const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+      document.getElementById("progress").style.width = `${docHeight > 0 ? (scrollTop / docHeight) * 100 : 0}%`;
+
+      let activeId = sections[0]?.id;
+      sections.forEach((section) => {
+        if (section.offsetTop - 120 <= scrollTop) {
+          activeId = section.id;
+        }
+      });
+      links.forEach((link) => {
+        link.classList.toggle("active", link.getAttribute("href") === `#${activeId}`);
+      });
+    }
+    window.addEventListener("scroll", updateScrollState, { passive: true });
+    updateScrollState();
+  </script>
+</body>
+</html>

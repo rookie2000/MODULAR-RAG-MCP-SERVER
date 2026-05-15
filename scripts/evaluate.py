@@ -27,6 +27,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from dataclasses import replace as dc_replace
 from pathlib import Path
 
 # Set UTF-8 encoding for Windows console
@@ -88,8 +89,15 @@ def main() -> int:
         print(f"❌ Configuration error: {exc}", file=sys.stderr)
         return 2
 
-    # Create evaluator from config
+    # Create evaluator from config. Running this CLI is an explicit request to
+    # evaluate, so avoid silently returning empty metrics when runtime config
+    # keeps evaluation disabled by default.
     try:
+        eval_settings = settings.evaluation
+        if not getattr(eval_settings, "enabled", False):
+            eval_settings = dc_replace(eval_settings, enabled=True)
+            settings = dc_replace(settings, evaluation=eval_settings)
+
         evaluator = EvaluatorFactory.create(settings)
         evaluator_name = type(evaluator).__name__
     except Exception as exc:
@@ -100,9 +108,9 @@ def main() -> int:
     hybrid_search = None
     if not args.no_search:
         try:
-            from src.core.query_engine.query_processor import QueryProcessor
-            from src.core.query_engine.hybrid_search import create_hybrid_search
             from src.core.query_engine.dense_retriever import create_dense_retriever
+            from src.core.query_engine.hybrid_search import create_hybrid_search
+            from src.core.query_engine.query_processor import QueryProcessor
             from src.core.query_engine.sparse_retriever import create_sparse_retriever
             from src.ingestion.storage.bm25_indexer import BM25Indexer
             from src.libs.embedding.embedding_factory import EmbeddingFactory

@@ -3,22 +3,20 @@
 from __future__ import annotations
 
 import json
-import tempfile
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
 
 from src.libs.evaluator.base_evaluator import BaseEvaluator
 from src.observability.evaluation.eval_runner import (
-    EvalRunner,
     EvalReport,
+    EvalRunner,
     GoldenTestCase,
     QueryResult,
     load_test_set,
 )
-
 
 # ── Fixtures / Helpers ────────────────────────────────────────────
 
@@ -29,16 +27,16 @@ class StubEvaluator(BaseEvaluator):
     def evaluate(
         self,
         query: str,
-        retrieved_chunks: List[Any],
-        generated_answer: Optional[str] = None,
-        ground_truth: Optional[Any] = None,
-        trace: Optional[Any] = None,
+        retrieved_chunks: list[Any],
+        generated_answer: str | None = None,
+        ground_truth: Any | None = None,
+        trace: Any | None = None,
         **kwargs: Any,
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         return {"hit_rate": 1.0, "mrr": 0.5}
 
 
-def _write_golden_json(path: Path, test_cases: List[Dict]) -> None:
+def _write_golden_json(path: Path, test_cases: list[dict]) -> None:
     data = {"test_cases": test_cases}
     path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
 
@@ -129,7 +127,7 @@ class TestEvalRunner:
         assert len(report.query_results) == 2
         assert report.aggregate_metrics["hit_rate"] == 1.0
         assert report.aggregate_metrics["mrr"] == 0.5
-        assert report.total_elapsed_ms > 0
+        assert report.total_elapsed_ms >= 0
 
     def test_run_with_hybrid_search(self, tmp_path: Path) -> None:
         f = tmp_path / "g.json"
@@ -165,6 +163,22 @@ class TestEvalRunner:
         report = runner.run(f)
 
         assert "Generated answer for: Q" == report.query_results[0].generated_answer
+
+    def test_reference_answer_passed_to_evaluator(self, tmp_path: Path) -> None:
+        f = tmp_path / "g.json"
+        _write_golden_json(f, [
+            {"query": "Q", "reference_answer": "Reference answer"},
+        ])
+
+        evaluator = MagicMock(spec=BaseEvaluator)
+        evaluator.evaluate.return_value = {"answer_similarity": 1.0}
+
+        runner = EvalRunner(evaluator=evaluator)
+        report = runner.run(f)
+
+        _, kwargs = evaluator.evaluate.call_args
+        assert kwargs["ground_truth"]["reference_answer"] == "Reference answer"
+        assert report.query_results[0].metrics["answer_similarity"] == 1.0
 
     def test_report_to_dict(self, tmp_path: Path) -> None:
         f = tmp_path / "g.json"

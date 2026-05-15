@@ -42,12 +42,12 @@ class TestCustomEvaluator:
         with pytest.raises(ValueError, match="Query cannot be empty"):
             evaluator.evaluate("  ", [{"id": "x"}], ground_truth=["x"])
 
-        with pytest.raises(ValueError, match="retrieved_chunks cannot be empty"):
-            evaluator.evaluate("query", [], ground_truth=["x"])
+        metrics = evaluator.evaluate("query", [], ground_truth=["x"])
+        assert metrics["hit_rate"] == 0.0
 
     def test_unsupported_metric_raises(self) -> None:
         with pytest.raises(ValueError, match="Unsupported custom metrics"):
-            CustomEvaluator(metrics=["faithfulness"])  # not supported in custom evaluator
+            CustomEvaluator(metrics=["context_precision"])  # not supported in custom evaluator
 
 
 class TestEvaluatorFactory:
@@ -161,3 +161,26 @@ class TestCustomEvaluatorBoundary:
             evaluator.evaluate("", [{"id": "x"}])
         with pytest.raises(ValueError):
             evaluator.evaluate("q", [])
+
+    def test_faithfulness_context_overlap(self) -> None:
+        """Custom faithfulness is a deterministic context-support proxy."""
+        evaluator = CustomEvaluator(metrics=["faithfulness"])
+        metrics = evaluator.evaluate(
+            "q",
+            [{"text": "Hybrid search combines dense retrieval and BM25 keyword matching."}],
+            generated_answer="Hybrid search combines dense retrieval.",
+        )
+
+        assert metrics["faithfulness"] == 1.0
+
+    def test_answer_similarity_uses_reference_answer(self) -> None:
+        """Answer similarity compares generated answer with golden reference text."""
+        evaluator = CustomEvaluator(metrics=["answer_similarity"])
+        metrics = evaluator.evaluate(
+            "q",
+            [{"text": "RAG uses retrieved context."}],
+            generated_answer="RAG uses context.",
+            ground_truth={"reference_answer": "RAG uses retrieved context."},
+        )
+
+        assert metrics["answer_similarity"] > 0.0
